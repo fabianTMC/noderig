@@ -9,7 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/disk"
-	"github.com/ovh/noderig/core"
+	"github.com/fabianTMC/noderig/core"
 )
 
 // Disk collects disk related metrics

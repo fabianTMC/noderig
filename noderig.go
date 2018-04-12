@@ -13,7 +13,7 @@ package main
 import (
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/ovh/noderig/cmd"
+	"github.com/fabianTMC/noderig/cmd"
 )
 
 func main() {

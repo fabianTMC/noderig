@@ -8,7 +8,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/ovh/noderig/core"
+	"github.com/fabianTMC/noderig/core"
 )
 
 // Memory collects memory related metrics

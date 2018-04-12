@@ -8,7 +8,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/net"
-	"github.com/ovh/noderig/core"
+	"github.com/fabianTMC/noderig/core"
 )
 
 // Net collects network related metrics

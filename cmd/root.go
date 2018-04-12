@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/ovh/noderig/collectors"
-	"github.com/ovh/noderig/core"
+	"github.com/fabianTMC/noderig/collectors"
+	"github.com/fabianTMC/noderig/core"
 )
 
 var cfgFile string

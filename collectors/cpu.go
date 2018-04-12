@@ -8,7 +8,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/cpu"
-	"github.com/ovh/noderig/core"
+	"github.com/fabianTMC/noderig/core"
 )
 
 // CPU collects cpu related metrics
