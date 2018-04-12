@@ -1,19 +1,20 @@
 package collectors
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 	"time"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/ovh/noderig/core"
 )
 
 // Memory collects memory related metrics
 type Memory struct {
 	mutex     sync.RWMutex
-	sensision bytes.Buffer
+	MetricsCollected   []core.MetricCollected
 	level     uint8
 }
 
@@ -40,13 +41,11 @@ func NewMemory(period uint, level uint8) *Memory {
 }
 
 // Metrics delivers metrics.
-func (c *Memory) Metrics() *bytes.Buffer {
+func (c *Memory) Metrics() []core.MetricCollected {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	var res bytes.Buffer
-	res.Write(c.sensision.Bytes())
-	return &res
+	return c.MetricsCollected
 }
 
 func (c *Memory) scrape() error {
@@ -65,25 +64,43 @@ func (c *Memory) scrape() error {
 	defer c.mutex.Unlock()
 
 	// Delete previous metrics
-	c.sensision.Reset()
+	c.MetricsCollected = nil
 
-	now := fmt.Sprintf("%v//", time.Now().UnixNano()/1000)
+	// timestamp := time.Now().UnixNano()/1000
 
-	gts := fmt.Sprintf("%v os.mem{} %v\n", now, virt.UsedPercent)
-	c.sensision.WriteString(gts)
+	gts := fmt.Sprintf("os.mem{}")
+	c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+		Name: gts,
+		Value: strconv.FormatFloat(virt.UsedPercent, 'f', 6, 64),
+	})
 
-	gts = fmt.Sprintf("%v os.swap{} %v\n", now, swap.UsedPercent)
-	c.sensision.WriteString(gts)
+	gts = fmt.Sprintf("os.swap{}")
+	c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+		Name: gts,
+		Value: strconv.FormatFloat(swap.UsedPercent, 'f', 6, 64),
+	})
 
 	if c.level > 1 {
-		gts := fmt.Sprintf("%v os.mem.used{} %v\n", now, virt.Used)
-		c.sensision.WriteString(gts)
-		gts = fmt.Sprintf("%v os.mem.total{} %v\n", now, virt.Total)
-		c.sensision.WriteString(gts)
-		gts = fmt.Sprintf("%v os.swap.used{} %v\n", now, swap.Used)
-		c.sensision.WriteString(gts)
-		gts = fmt.Sprintf("%v os.swap.total{} %v\n", now, swap.Total)
-		c.sensision.WriteString(gts)
+		gts := fmt.Sprintf("os.mem.used{}")
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatUint(virt.Used, 10),
+		})
+		gts = fmt.Sprintf("os.mem.total{}")
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatUint(virt.Total, 10),
+		})
+		gts = fmt.Sprintf("os.swap.used{}")
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatUint(swap.Used, 10),
+		})
+		gts = fmt.Sprintf("os.swap.total{}")
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatUint(swap.Total, 10),
+		})
 	}
 
 	return nil

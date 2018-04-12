@@ -1,20 +1,21 @@
 package collectors
 
 import (
-	"bytes"
 	"fmt"
 	"path"
 	"sync"
 	"time"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/disk"
+	"github.com/ovh/noderig/core"
 )
 
 // Disk collects disk related metrics
 type Disk struct {
 	mutex        sync.RWMutex
-	sensision    bytes.Buffer
+	MetricsCollected   []core.MetricCollected
 	level        uint8
 	period       uint
 	allowedDisks map[string]struct{}
@@ -59,13 +60,11 @@ func NewDisk(period uint, level uint8, opts interface{}) *Disk {
 }
 
 // Metrics delivers metrics.
-func (c *Disk) Metrics() *bytes.Buffer {
+func (c *Disk) Metrics() []core.MetricCollected {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	var res bytes.Buffer
-	res.Write(c.sensision.Bytes())
-	return &res
+	return c.MetricsCollected
 }
 
 func (c *Disk) scrape() error {
@@ -92,9 +91,10 @@ func (c *Disk) scrape() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.sensision.Reset()
+	c.MetricsCollected = nil
 
-	now := fmt.Sprintf("%v// os.disk.fs", time.Now().UnixNano()/1000)
+	now := fmt.Sprintf("os.disk.fs")
+	// timestamp := time.Now().UnixNano()/1000
 
 	for diskPath, usage := range dev {
 		if len(c.allowedDisks) > 0 {
@@ -104,8 +104,11 @@ func (c *Disk) scrape() error {
 				continue
 			}
 		}
-		gts := fmt.Sprintf("%v{disk=%v}{mount=%v} %v\n", now, diskPath, usage.Path, usage.UsedPercent)
-		c.sensision.WriteString(gts)
+		gts := fmt.Sprintf("%v{disk=%v}{mount=%v}", now, diskPath, usage.Path)
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatFloat(usage.UsedPercent, 'f', 6, 64),
+		})
 	}
 
 	if c.level > 1 {
@@ -118,14 +121,26 @@ func (c *Disk) scrape() error {
 				}
 			}
 
-			gts := fmt.Sprintf("%v.used{disk=%v}{mount=%v} %v\n", now, diskPath, usage.Path, usage.Used)
-			c.sensision.WriteString(gts)
-			gts = fmt.Sprintf("%v.total{disk=%v}{mount=%v} %v\n", now, diskPath, usage.Path, usage.Total)
-			c.sensision.WriteString(gts)
-			gts = fmt.Sprintf("%v.inodes.used{disk=%v}{mount=%v} %v\n", now, diskPath, usage.Path, usage.InodesUsed)
-			c.sensision.WriteString(gts)
-			gts = fmt.Sprintf("%v.inodes.total{disk=%v}{mount=%v} %v\n", now, diskPath, usage.Path, usage.InodesTotal)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("%v.used{disk=%v}{mount=%v}", now, diskPath, usage.Path)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(usage.Used, 10),
+			})
+			gts = fmt.Sprintf("%v.total{disk=%v}{mount=%v}", now, diskPath, usage.Path)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(usage.Total, 10),
+			})
+			gts = fmt.Sprintf("%v.inodes.used{disk=%v}{mount=%v}", now, diskPath, usage.Path)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(usage.InodesUsed, 10),
+			})
+			gts = fmt.Sprintf("%v.inodes.total{disk=%v}{mount=%v}", now, diskPath, usage.Path)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(usage.InodesTotal, 10),
+			})
 		}
 	}
 
@@ -137,28 +152,57 @@ func (c *Disk) scrape() error {
 					continue
 				}
 			}
-			gts := fmt.Sprintf("%v.bytes.read{name=%v} %v\n", now, name, stats.ReadBytes)
-			c.sensision.WriteString(gts)
-			gts = fmt.Sprintf("%v.bytes.write{name=%v} %v\n", now, name, stats.WriteBytes)
-			c.sensision.WriteString(gts)
+
+			gts := fmt.Sprintf("%v.bytes.read{name=%v}", now, name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(stats.ReadBytes, 10),
+			})
+
+			gts = fmt.Sprintf("%v.bytes.write{name=%v}", now, name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(stats.WriteBytes, 10),
+			})
 
 			if c.level > 3 {
-				gts = fmt.Sprintf("%v.io.read{name=%v} %v\n", now, name, stats.ReadCount)
-				c.sensision.WriteString(gts)
-				gts = fmt.Sprintf("%v.io.write{name=%v} %v\n", now, name, stats.WriteCount)
-				c.sensision.WriteString(gts)
+				gts = fmt.Sprintf("%v.io.read{name=%v}", now, name)
+				c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+					Name: gts,
+					Value: strconv.FormatUint(stats.ReadCount, 10),
+				})
+				gts = fmt.Sprintf("%v.io.write{name=%v}", now, name)
+				c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+					Name: gts,
+					Value: strconv.FormatUint(stats.WriteCount, 10),
+				})
 
 				if c.level > 4 {
-					gts = fmt.Sprintf("%v.io.read.ms{name=%v} %v\n", now, name, stats.ReadTime)
-					c.sensision.WriteString(gts)
-					gts = fmt.Sprintf("%v.io.write.ms{name=%v} %v\n", now, name, stats.WriteTime)
-					c.sensision.WriteString(gts)
-					gts = fmt.Sprintf("%v.io{name=%v} %v\n", now, name, stats.IopsInProgress)
-					c.sensision.WriteString(gts)
-					gts = fmt.Sprintf("%v.io.ms{name=%v} %v\n", now, name, stats.IoTime)
-					c.sensision.WriteString(gts)
-					gts = fmt.Sprintf("%v.io.weighted.ms{name=%v} %v\n", now, name, stats.WeightedIO)
-					c.sensision.WriteString(gts)
+					gts = fmt.Sprintf("%v.io.read.ms{name=%v}", now, name)
+					c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+						Name: gts,
+						Value: strconv.FormatUint(stats.ReadTime, 10),
+					})
+					gts = fmt.Sprintf("%v.io.write.ms{name=%v}", now, name)
+					c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+						Name: gts,
+						Value: strconv.FormatUint(stats.WriteTime, 10),
+					})
+					gts = fmt.Sprintf("%v.io{name=%v}", now, name)
+					c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+						Name: gts,
+						Value: strconv.FormatUint(stats.IopsInProgress, 10),
+					})
+					gts = fmt.Sprintf("%v.io.ms{name=%v}", now, name)
+					c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+						Name: gts,
+						Value: strconv.FormatUint(stats.IoTime, 10),
+					})
+					gts = fmt.Sprintf("%v.io.weighted.ms{name=%v}", now, name)
+					c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+						Name: gts,
+						Value: strconv.FormatUint(stats.WeightedIO, 10),
+					})
 				}
 			}
 		}

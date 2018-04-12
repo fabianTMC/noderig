@@ -16,6 +16,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/cpu"
+	"github.com/ovh/noderig/core"
 )
 
 // Collector collects external metrics
@@ -23,7 +24,7 @@ type Collector struct {
 	times []cpu.TimesStat
 
 	mutex     sync.RWMutex
-	sensision bytes.Buffer
+	MetricsCollected   []core.MetricCollected
 	fetched   []bytes.Buffer
 	path      string
 }
@@ -48,26 +49,11 @@ func NewCollector(path string, period uint, keep uint) *Collector {
 }
 
 // Metrics delivers metrics.
-func (c *Collector) Metrics() *bytes.Buffer {
+func (c *Collector) Metrics() []core.MetricCollected {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	var top bytes.Buffer
-	top.Grow(c.sensision.Len())
-	top.Write(c.sensision.Bytes())
-
-	for i := len(c.fetched) - 1; i > 0; i-- {
-		c.fetched[i] = c.fetched[i-1]
-	}
-	c.fetched[0] = top
-
-	c.sensision.Reset()
-
-	var res bytes.Buffer
-	for i := 0; i < len(c.fetched); i++ {
-		res.Write(c.fetched[i].Bytes())
-	}
-	return &res
+	return c.MetricsCollected
 }
 
 // DataPoint is an opentsdb data point
@@ -99,6 +85,8 @@ func (c *Collector) scrape() (cmdError error) {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+
+	log.Info("Scrape")
 
 	// Wait for close
 	go func() {
@@ -189,6 +177,8 @@ func (c *Collector) scrape() (cmdError error) {
 				}
 			}
 			dp.Value = val
+
+			log.Info("%v", dp.Value)
 		} else {
 			if err := json.Unmarshal([]byte(t), &dp); err != nil {
 				// Maybe meta json
@@ -216,7 +206,7 @@ func (c *Collector) scrape() (cmdError error) {
 		case string:
 			gts += fmt.Sprintf("'%v'\n", url.PathEscape(dp.Value.(string)))
 		}
-		c.sensision.WriteString(gts)
+		// c.sensision.WriteString(gts)
 		c.mutex.Unlock()
 	}
 

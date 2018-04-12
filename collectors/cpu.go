@@ -1,13 +1,14 @@
 package collectors
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 	"time"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/cpu"
+	"github.com/ovh/noderig/core"
 )
 
 // CPU collects cpu related metrics
@@ -15,7 +16,7 @@ type CPU struct {
 	times []cpu.TimesStat
 
 	mutex     sync.RWMutex
-	sensision bytes.Buffer
+	MetricsCollected   []core.MetricCollected
 	level     uint8
 }
 
@@ -42,13 +43,11 @@ func NewCPU(period uint, level uint8) *CPU {
 }
 
 // Metrics delivers metrics.
-func (c *CPU) Metrics() *bytes.Buffer {
+func (c *CPU) Metrics() []core.MetricCollected {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	var res bytes.Buffer
-	res.Write(c.sensision.Bytes())
-	return &res
+	return c.MetricsCollected
 }
 
 // https://github.com/Leo-G/DevopsWiki/wiki/How-Linux-CPU-Usage-Time-and-Percentage-is-calculated
@@ -92,12 +91,16 @@ func (c *CPU) scrape() error {
 	defer c.mutex.Unlock()
 
 	// Delete previous metrics
-	c.sensision.Reset()
+	c.MetricsCollected = nil
 
-	class := fmt.Sprintf("%v// os.cpu", time.Now().UnixNano()/1000)
+	class := fmt.Sprintf("os.cpu")
+	// timestamp := time.Now().UnixNano()/1000
 
-	gts := fmt.Sprintf("%v{} %v\n", class, global)
-	c.sensision.WriteString(gts)
+	gts := fmt.Sprintf("%v{}", class)
+	c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+		Name: gts,
+		Value: strconv.FormatFloat(global, 'f', 6, 64),
+	})
 
 	if c.level == 2 {
 		iowait := 0.0
@@ -105,66 +108,96 @@ func (c *CPU) scrape() error {
 			iowait += v
 		}
 		iowait = iowait / float64(len(iowaits)) * 100
-		gts := fmt.Sprintf("%v.iowait{} %v\n", class, iowait)
-		c.sensision.WriteString(gts)
+		gts := fmt.Sprintf("%v.iowait{}", class)
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatFloat(iowait, 'f', 6, 64),
+		})
 
 		user := 0.0
 		for _, v := range users {
 			user += v
 		}
 		user = user / float64(len(users)) * 100
-		gts = fmt.Sprintf("%v.user{} %v\n", class, user)
-		c.sensision.WriteString(gts)
+		gts = fmt.Sprintf("%v.user{}", class)
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatFloat(user, 'f', 6, 64),
+		})
 
 		system := 0.0
 		for _, v := range systems {
 			system += v
 		}
 		system = system / float64(len(systems)) * 100
-		gts = fmt.Sprintf("%v.systems{} %v\n", class, system)
-		c.sensision.WriteString(gts)
+		gts = fmt.Sprintf("%v.systems{}", class)
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatFloat(system, 'f', 6, 64),
+		})
 
 		nice := 0.0
 		for _, v := range nices {
 			nice += v
 		}
 		nice = nice / float64(len(nices)) * 100
-		gts = fmt.Sprintf("%v.nice{} %v\n", class, nice)
-		c.sensision.WriteString(gts)
+		gts = fmt.Sprintf("%v.nice{}", class)
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatFloat(nice, 'f', 6, 64),
+		})
 
 		irq := 0.0
 		for _, v := range irqs {
 			irq += v
 		}
 		irq = irq / float64(len(irqs)) * 100
-		gts = fmt.Sprintf("%v.irq{} %v\n", class, irq)
-		c.sensision.WriteString(gts)
+		gts = fmt.Sprintf("%v.irq{}", class)
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatFloat(irq, 'f', 6, 64),
+		})
 	}
 
 	if c.level == 3 {
 		for i, v := range iowaits {
-			gts := fmt.Sprintf("%v.iowait{chore=%v} %v\n", class, i, v*100)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("%v.iowait{chore=%v}", class, i)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatFloat(v*100, 'f', 6, 64),
+			})
 		}
 
 		for i, v := range users {
-			gts := fmt.Sprintf("%v.user{chore=%v} %v\n", class, i, v*100)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("%v.user{chore=%v}", class, i)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatFloat(v*100, 'f', 6, 64),
+			})
 		}
 
 		for i, v := range systems {
-			gts := fmt.Sprintf("%v.systems{chore=%v} %v\n", class, i, v*100)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("%v.systems{chore=%v}", class, i)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatFloat(v*100, 'f', 6, 64),
+			})
 		}
 
 		for i, v := range nices {
-			gts := fmt.Sprintf("%v.nice{chore=%v} %v\n", class, i, v*100)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("%v.nice{chore=%v}", class, i)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatFloat(v*100, 'f', 6, 64),
+			})
 		}
 
 		for i, v := range irqs {
-			gts := fmt.Sprintf("%v.irq{chore=%v} %v\n", class, i, v*100)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("%v.irq{chore=%v}", class, i)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatFloat(v*100, 'f', 6, 64),
+			})
 		}
 	}
 

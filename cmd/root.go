@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"net/http"
+	"encoding/json"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -148,21 +149,14 @@ var RootCmd = &cobra.Command{
 
 		// Setup http
 		http.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			var metrics []core.MetricCollected
 			for _, c := range cs {
-				w.Write(c.Metrics().Bytes())
+				metrics = append(metrics, c.Metrics()...)
 			}
-		}))
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`<html>
-	             <head><title>Noderig</title></head>
-	             <body>
-	             <h1>Noderig</h1>
-	             <p><a href="/metrics">Metrics</a></p>
-	             <p><a href="https://github.com/ovh/noderig">Github</a></p>
-	             </body>
-	             </html>`))
 
-		})
+			json.NewEncoder(w).Encode(metrics)
+		}))
+
 		log.Info("Http started")
 
 		if viper.IsSet("flushPath") {
@@ -179,9 +173,9 @@ var RootCmd = &cobra.Command{
 							log.Errorf("Flush failed: %v", err)
 						}
 
-						for _, c := range cs {
-							file.Write(c.Metrics().Bytes())
-						}
+						// for _, c := range cs {
+						// 	// file.Write(c.Metrics().Bytes())
+						// }
 
 						file.Close()
 

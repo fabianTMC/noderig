@@ -1,10 +1,11 @@
 package core
 
-import (
-	"bytes"
-)
+type MetricCollected struct {
+	Name string `json:"name"`
+	Value string `json:"value"`
+}
 
 // Collector interface
 type Collector interface {
-	Metrics() *bytes.Buffer
+	Metrics() []MetricCollected
 }

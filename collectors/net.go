@@ -1,20 +1,21 @@
 package collectors
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 	"time"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/shirou/gopsutil/net"
+	"github.com/ovh/noderig/core"
 )
 
 // Net collects network related metrics
 type Net struct {
 	interfaces []string
 	mutex      sync.RWMutex
-	sensision  bytes.Buffer
+	MetricsCollected   []core.MetricCollected
 	level      uint8
 	period     uint
 }
@@ -62,13 +63,11 @@ func NewNet(period uint, level uint8, opts interface{}) *Net {
 }
 
 // Metrics delivers metrics.
-func (c *Net) Metrics() *bytes.Buffer {
+func (c *Net) Metrics() []core.MetricCollected {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	var res bytes.Buffer
-	res.Write(c.sensision.Bytes())
-	return &res
+	return c.MetricsCollected
 }
 
 func (c *Net) scrape() error {
@@ -94,16 +93,22 @@ func (c *Net) scrape() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.sensision.Reset()
+	c.MetricsCollected = nil
 
-	now := fmt.Sprintf("%v//", time.Now().UnixNano()/1000)
+	// timestamp := time.Now().UnixNano()/1000
 
 	if c.level == 1 {
-		gts := fmt.Sprintf("%v os.net.bytes{direction=in} %v\n", now, in)
-		c.sensision.WriteString(gts)
+		gts := fmt.Sprintf("os.net.bytes{direction=in}")
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatUint(in, 10),
+		})
 
-		gts = fmt.Sprintf("%v os.net.bytes{direction=out} %v\n", now, out)
-		c.sensision.WriteString(gts)
+		gts = fmt.Sprintf("os.net.bytes{direction=out}")
+		c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+			Name: gts,
+			Value: strconv.FormatUint(out, 10),
+		})
 	}
 
 	if c.level > 1 {
@@ -113,11 +118,17 @@ func (c *Net) scrape() error {
 			} else if c.interfaces != nil && !stringInSlice(cnt.Name, c.interfaces) {
 				continue
 			}
-			gts := fmt.Sprintf("%v os.net.bytes{iface=%v,direction=in} %v\n", now, cnt.Name, cnt.BytesRecv)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("os.net.bytes{iface=%v,direction=in}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.BytesRecv, 10),
+			})
 
-			gts = fmt.Sprintf("%v os.net.bytes{iface=%v,direction=out} %v\n", now, cnt.Name, cnt.BytesSent)
-			c.sensision.WriteString(gts)
+			gts = fmt.Sprintf("os.net.bytes{iface=%v,direction=out}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.BytesSent, 10),
+			})
 		}
 	}
 
@@ -128,23 +139,41 @@ func (c *Net) scrape() error {
 			} else if c.interfaces != nil && !stringInSlice(cnt.Name, c.interfaces) {
 				continue
 			}
-			gts := fmt.Sprintf("%v os.net.packets{iface=%v,direction=in} %v\n", now, cnt.Name, cnt.PacketsRecv)
-			c.sensision.WriteString(gts)
+			gts := fmt.Sprintf("os.net.packets{iface=%v,direction=in}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.PacketsRecv, 10),
+			})
 
-			gts = fmt.Sprintf("%v os.net.packets{iface=%v,direction=out} %v\n", now, cnt.Name, cnt.PacketsSent)
-			c.sensision.WriteString(gts)
+			gts = fmt.Sprintf("os.net.packets{iface=%v,direction=out}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.PacketsSent, 10),
+			})
 
-			gts = fmt.Sprintf("%v os.net.errs{iface=%v,direction=in} %v\n", now, cnt.Name, cnt.Errin)
-			c.sensision.WriteString(gts)
+			gts = fmt.Sprintf("os.net.errs{iface=%v,direction=in}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.Errin, 10),
+			})
 
-			gts = fmt.Sprintf("%v os.net.errs{iface=%v,direction=out} %v\n", now, cnt.Name, cnt.Errout)
-			c.sensision.WriteString(gts)
+			gts = fmt.Sprintf("os.net.errs{iface=%v,direction=out}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.Errout, 10),
+			})
 
-			gts = fmt.Sprintf("%v os.net.dropped{iface=%v,direction=in} %v\n", now, cnt.Name, cnt.Dropin)
-			c.sensision.WriteString(gts)
+			gts = fmt.Sprintf("os.net.dropped{iface=%v,direction=in}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.Dropin, 10),
+			})
 
-			gts = fmt.Sprintf("%v os.net.dropped{iface=%v,direction=out} %v\n", now, cnt.Name, cnt.Dropout)
-			c.sensision.WriteString(gts)
+			gts = fmt.Sprintf("os.net.dropped{iface=%v,direction=out}", cnt.Name)
+			c.MetricsCollected = append(c.MetricsCollected, core.MetricCollected{
+				Name: gts,
+				Value: strconv.FormatUint(cnt.Dropout, 10),
+			})
 		}
 	}
 
