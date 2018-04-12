@@ -1,8 +1,8 @@
-# Noderig - Export OS stats as Sensision Metrics
+# Noderig -  OS stats as JSON via a GET request
 
-[![Build Status](https://travis-ci.org/ovh/noderig.svg?branch=master)](https://travis-ci.org/ovh/noderig)
+[![Build Status](https://travis-ci.org/fabianTMC/noderig.svg?branch=master)](https://travis-ci.org/fabianTMC/noderig)
 
-Noderig collect OS metrics and expose them through a Sensision HTTP endpoint. Each collector is easily configurable, thanks to a simple level cursor
+Noderig collect OS metrics and expose them through a JSON HTTP endpoint. Each collector is easily configurable, thanks to a simple level cursor
 
 Noderig metrics:
 - CPU
@@ -14,7 +14,7 @@ Noderig metrics:
 
 ## Status
 
-Noderig is currently under development. Feel free to comment or contribute!
+Noderig is currently under development. Feel free to comment or contribute! This JSON version is based on the [original Sensision version](https://github.com/ovh/noderig)
 
 ## Building
 
@@ -176,13 +176,28 @@ disk-opts:
 ## Sample metrics
 
 ```
-1484828198557102// os.cpu{} 2.5202020226869237
-1484828198560976// os.mem{} 24.328345730457112
-1484828198560976// os.swap{} 0
-1484828198557435// os.load1{} 0.63
-1484828198561366// os.net.bytes{direction=in} 858
-1484828198561366// os.net.bytes{direction=out} 778
-1484828197570759// os.disk.fs{disk=/dev/sda1} 4.967614357908193
+[{
+	"name": "os.cpu{}",
+	"value": "27.897724"
+}, {
+	"name": "os.mem{}",
+	"value": "47.799676"
+}, {
+	"name": "os.swap{}",
+	"value": "0.216893"
+}, {
+	"name": "os.load1{}",
+	"value": "1.630000"
+}, {
+	"name": "os.net.bytes{direction=in}",
+	"value": "417242163"
+}, {
+	"name": "os.net.bytes{direction=out}",
+	"value": "20276160"
+}, {
+	"name": "os.disk.fs{disk=/dev/sda1}{mount=/boot/efi}",
+	"value": "7.143082"
+}]
 ```
 
 ## Contributing
@@ -191,6 +206,7 @@ Instructions on how to contribute to Noderig are available on the [Contributing]
 
 ## Get in touch
 
-- Twitter: [@notd33d33](https://twitter.com/notd33d33)
+- [@fabianTMC](https://twitter.com/fabianTMC)
+- [@notd33d33](https://twitter.com/notd33d33)
 
 [contributing]: CONTRIBUTING.md
